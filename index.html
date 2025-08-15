@@ -9,7 +9,7 @@
     .ok { color: green; font-weight: bold; }
     .err { color: red; font-weight: bold; }
     .mode-select { margin: 15px 0; }
-    input, select, button { padding: 6px; margin: 4px; }
+    input, button { padding: 6px; margin: 4px; }
 </style>
 </head>
 <body>
@@ -36,9 +36,19 @@
 
 <div id="msg" style="margin-top:10px;">🔍 Arahkan kamera ke kode...</div>
 
+<!-- Beep Sound -->
+<audio id="beep-sound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbxo8rvk6x5PGZOImUA5q7pkBC6SouF75YhvQWAIT3vCMxqk1WRvmw9R3WAf1oJcJ2cj/exec"; // URL Apps Script
+const scriptURL = "https://script.google.com/macros/s/AKfycbxo8rvk6x5PGZOImUA5q7pkBC6SouF75YhvQWAIT3vCMxqk1WRvmw9R3WAf1oJcJ2cj/exec"; // Ganti dengan URL Apps Script
+
+let lastScan = "";
+let lastScanTime = 0;
+
+function playBeep() {
+    document.getElementById("beep-sound").play();
+}
 
 function kirimData(nama, jumlah, petugas, catatan, mode) {
     document.getElementById("msg").innerHTML = `📤 Mengirim: ${nama}...`;
@@ -55,6 +65,7 @@ function kirimData(nama, jumlah, petugas, catatan, mode) {
     .then(res => res.json())
     .then(data => {
         if (data.status === "OK") {
+            playBeep();
             document.getElementById("msg").innerHTML = `<span class="ok">✅ ${nama} (${mode}) berhasil</span>`;
         } else {
             document.getElementById("msg").innerHTML = `<span class="err">❌ Gagal</span>`;
@@ -65,7 +76,13 @@ function kirimData(nama, jumlah, petugas, catatan, mode) {
     });
 }
 
-// Kirim data dari input manual / scanner fisik
+// Untuk scanner fisik / input manual
+document.getElementById("nama").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        kirimManual();
+    }
+});
+
 function kirimManual() {
     const nama = document.getElementById("nama").value.trim();
     const jumlah = document.getElementById("jumlah").value;
@@ -79,12 +96,21 @@ function kirimManual() {
     }
 }
 
-// Kirim data dari kamera HP
+// Untuk kamera HP (html5-qrcode)
 function onScanSuccess(decodedText) {
+    const now = Date.now();
+    if (decodedText === lastScan && (now - lastScanTime) < 3000) {
+        // Abaikan scan duplikat < 3 detik
+        return;
+    }
+    lastScan = decodedText;
+    lastScanTime = now;
+
     const jumlah = document.getElementById("jumlah").value;
     const petugas = document.getElementById("petugas").value.trim();
     const catatan = document.getElementById("catatan").value.trim();
     const mode = document.querySelector('input[name="mode"]:checked').value;
+
     kirimData(decodedText, jumlah, petugas, catatan, mode);
 }
 
