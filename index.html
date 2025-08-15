@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Scan Barang via Kamera</title>
+<style>
+    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+    #scanner-container { width: 100%; height: 300px; border: 2px solid #ccc; margin-bottom: 15px; }
+    #msg { font-weight: bold; margin-top: 10px; }
+    .ok { color: green; }
+    .err { color: red; }
+</style>
+</head>
+<body>
+
+<h2>Scan Barang via Kamera HP</h2>
+<div id="scanner-container"></div>
+<div id="msg">🔍 Arahkan kamera ke barcode...</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script>
+const scriptURL = "https://script.google.com/macros/s/AKfycbxzMbNNeDNe83m55n6i5R2-1J37xqhP0ZaYloQjWOX1C-OwOgkT7Xtp_3LfhqXaIuhn/exec"; // Ganti dengan URL Apps Script kamu
+let lastScan = "";
+let lastTime = 0;
+
+Quagga.init({
+    inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: document.querySelector('#scanner-container'),
+        constraints: {
+            facingMode: "environment" // kamera belakang
+        }
+    },
+    decoder: {
+        readers: ["code_128_reader", "ean_reader", "ean_8_reader", "upc_reader"] // tipe barcode
+    }
+}, function(err) {
+    if (err) {
+        console.error(err);
+        document.getElementById("msg").innerHTML = `<span class="err">⚠️ Gagal mengakses kamera</span>`;
+        return;
+    }
+    Quagga.start();
+});
+
+Quagga.onDetected(function(result) {
+    const code = result.codeResult.code;
+    const now = Date.now();
+    
+    // Cegah double scan cepat
+    if (code === lastScan && now - lastTime < 2000) return;
+    lastScan = code;
+    lastTime = now;
+
+    kirimData(code);
+});
+
+function kirimData(nama) {
+    document.getElementById("msg").innerHTML = `📤 Mengirim: ${nama}...`;
+    fetch(scriptURL, {
+        method: "POST",
+        body: new URLSearchParams({ nama: nama })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "OK") {
+            document.getElementById("msg").innerHTML = `<span class="ok">✅ ${nama} ditambah 1</span>`;
+        } else {
+            document.getElementById("msg").innerHTML = `<span class="err">❌ Gagal: ${data.message || 'Error'}</span>`;
+        }
+    })
+    .catch(err => {
+        document.getElementById("msg").innerHTML = `<span class="err">⚠️ Error: ${err}</span>`;
+    });
+}
+</script>
+
+</body>
+</html>
