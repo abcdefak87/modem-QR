@@ -2,33 +2,60 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scan QR/Barcode</title>
+<title>Scan Barang Masuk/Keluar</title>
 <style>
-    #reader { width: 500px; margin: auto; }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; }
+    #reader { width: 300px; margin: 10px auto; }
     .ok { color: green; font-weight: bold; }
     .err { color: red; font-weight: bold; }
+    .mode-select { margin: 15px 0; }
+    input, select, button { padding: 6px; margin: 4px; }
 </style>
 </head>
 <body>
 
-<h2 style="text-align:center">Scan Barang</h2>
+<h2>📦 Scan Barang</h2>
+
+<div class="mode-select">
+    <label><input type="radio" name="mode" value="masuk" checked> Barang Masuk</label>
+    <label><input type="radio" name="mode" value="keluar"> Barang Keluar</label>
+</div>
+
+<div>
+    <input type="text" id="nama" placeholder="Scan atau ketik nama barang" autofocus>
+    <input type="number" id="jumlah" value="1" min="1">
+    <input type="text" id="petugas" placeholder="Nama Petugas">
+    <input type="text" id="catatan" placeholder="Catatan">
+    <button onclick="kirimManual()">Kirim Manual</button>
+</div>
+
+<hr>
+
+<h3>📷 Scan via Kamera HP</h3>
 <div id="reader"></div>
-<div id="msg" style="text-align:center; margin-top:10px;">🔍 Arahkan kamera ke kode...</div>
+
+<div id="msg" style="margin-top:10px;">🔍 Arahkan kamera ke kode...</div>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbzj4Pb1VF2C9AmddFLNUSjb4g-yCI951uWEbk9j-a4pJ6neDEgExjI6gCJkNKlks3zd/exec"; // URL Apps Script
+const scriptURL = "PASTE_URL_WEB_APP_DISINI"; // URL Apps Script
 
-function kirimData(nama) {
+function kirimData(nama, jumlah, petugas, catatan, mode) {
     document.getElementById("msg").innerHTML = `📤 Mengirim: ${nama}...`;
     fetch(scriptURL, {
         method: "POST",
-        body: new URLSearchParams({ nama: nama })
+        body: new URLSearchParams({ 
+            nama: nama,
+            jumlah: jumlah,
+            petugas: petugas,
+            catatan: catatan,
+            mode: mode
+        })
     })
     .then(res => res.json())
     .then(data => {
         if (data.status === "OK") {
-            document.getElementById("msg").innerHTML = `<span class="ok">✅ ${nama} ditambah 1</span>`;
+            document.getElementById("msg").innerHTML = `<span class="ok">✅ ${nama} (${mode}) berhasil</span>`;
         } else {
             document.getElementById("msg").innerHTML = `<span class="err">❌ Gagal</span>`;
         }
@@ -38,16 +65,42 @@ function kirimData(nama) {
     });
 }
 
+// Kirim data dari input manual / scanner fisik
+function kirimManual() {
+    const nama = document.getElementById("nama").value.trim();
+    const jumlah = document.getElementById("jumlah").value;
+    const petugas = document.getElementById("petugas").value.trim();
+    const catatan = document.getElementById("catatan").value.trim();
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    if (nama) {
+        kirimData(nama, jumlah, petugas, catatan, mode);
+        document.getElementById("nama").value = "";
+        document.getElementById("nama").focus();
+    }
+}
+
+// Kirim data dari kamera HP
 function onScanSuccess(decodedText) {
-    kirimData(decodedText);
+    const jumlah = document.getElementById("jumlah").value;
+    const petugas = document.getElementById("petugas").value.trim();
+    const catatan = document.getElementById("catatan").value.trim();
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    kirimData(decodedText, jumlah, petugas, catatan, mode);
 }
 
 const html5QrCode = new Html5Qrcode("reader");
 Html5Qrcode.getCameras().then(cameras => {
     if (cameras && cameras.length) {
+        let backCamera = cameras.find(cam => 
+            cam.label.toLowerCase().includes('back') || 
+            cam.label.toLowerCase().includes('rear') || 
+            cam.label.toLowerCase().includes('environment')
+        );
+        let cameraId = backCamera ? backCamera.id : cameras[cameras.length - 1].id;
+
         html5QrCode.start(
-            cameras[0].id, // pilih kamera pertama
-            { fps: 10, qrbox: 250 },
+            cameraId,
+            { fps: 10, qrbox: 200 },
             onScanSuccess
         );
     }
